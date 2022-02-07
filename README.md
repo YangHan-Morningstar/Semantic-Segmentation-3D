@@ -2,7 +2,7 @@
 
 ## 一、简介
 
-* 通过PyTorch框架实现的3D语义分割Demo，V-Net作为Baseline，采用Cross Entropy Loss和Dice Loss，评价指标包括Dice、Jaccard、95HD、ASD。
+* 通过PyTorch框架实现的3D语义分割Demo，V-Net作为Baseline，包含Cross Entropy Loss、Dice Loss和Focal Loss，评价指标包括Dice、Jaccard、95HD、ASD。
 * 训练阶段采用Random Crop，测试阶段采用Sliding Window。
 * 支持多GPU训练、单GPU测试，兼容单/多前景。
 * 在实际任务中可以把本项目当作模版并修改或添加自己的代码。

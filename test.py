@@ -14,9 +14,9 @@ def test_during_train(
         test_image_list,
         label_list,
         patch_size,
-        stride_x=16,
-        stride_y=16,
-        stride_z=16):
+        stride_dim0=16,
+        stride_dim1=16,
+        stride_dim2=16):
     model.eval()
     with torch.no_grad():
         avg_metric = test_all_case(
@@ -24,9 +24,9 @@ def test_during_train(
             test_image_list,
             label_list=label_list,
             patch_size=patch_size,
-            stride_x=stride_x,
-            stride_y=stride_y,
-            stride_z=stride_z
+            stride_dim0=stride_dim0,
+            stride_dim1=stride_dim1,
+            stride_dim2=stride_dim2
         )
     return avg_metric
 
@@ -36,17 +36,17 @@ def test_all_case(
         test_image_list,
         label_list,
         patch_size,
-        stride_x=16,
-        stride_y=16,
-        stride_z=16):
+        stride_dim0=16,
+        stride_dim1=16,
+        stride_dim2=16):
     '''
     :param model: model with pretrained weights
     :param test_image_list: test filepath, etc
     :param label_list: label dict(list form)
     :param patch_size: size of input, must be less than the size of image
-    :param stride_x: step in x dim
-    :param stride_y: step in y dim
-    :param stride_z: step in z dim
+    :param stride_dim2: step in 2 dim of image
+    :param stride_dim1: step in 1 dim of image
+    :param stride_dim0: step in 0 dim of image
     :return: metrics dict of whole test dataset
     '''
     seg_metrics = SegmentationMetrics(label_list)
@@ -59,7 +59,7 @@ def test_all_case(
         label = np.load('{}_label.npy'.format(image_path))
 
         prediction, score_map = test_single_case(
-            model, image, len(label_list), stride_x, stride_y, stride_z, patch_size
+            model, image, len(label_list), stride_dim0, stride_dim1, stride_dim2, patch_size
         )
 
         if np.sum(prediction) == 0:
@@ -84,42 +84,42 @@ def test_all_case(
     return total_organs_metrics_dict
 
 
-def test_single_case(model, image, num_class, stride_x, stride_y, stride_z, patch_size):
+def test_single_case(model, image, num_class, stride_dim0, stride_dim1, stride_dim2, patch_size):
     '''
     :param model: model with pretrained weights
-    :param image: 3D
+    :param image: (dim0, dim1, dim2)
     :param num_class: n_channel
-    :param stride_x: step in x dim
-    :param stride_y: step in y dim
-    :param stride_z: step in z dim
+    :param stride_dim2: step in 2 dim of image
+    :param stride_dim1: step in 1 dim of image
+    :param stride_dim0: step in 0 dim of image
     :param patch_size: size of input, must be less than the size of image
     :return: 3D segmentation prediction(not one-hot) and probability map
     '''
-    d, h, w = image.shape
-    dp, hp, wp = patch_size
+    img_dim0, img_dim1, img_dim2 = image.shape
+    patch_dim0, patch_dim1, patch_dim2 = patch_size
 
-    assert d >= dp and h >= hp and w >= wp, 'size of image must be larger than patch_size'
+    assert img_dim0 >= patch_dim0 and img_dim1 >= patch_dim1 and img_dim2 >= patch_dim2, 'size of image must be larger than patch_size'
 
-    sz = math.ceil((d - dp) / stride_z) + 1
-    sy = math.ceil((h - hp) / stride_y) + 1
-    sx = math.ceil((w - wp) / stride_x) + 1
+    s_dim0 = math.ceil((img_dim0 - patch_dim0) / stride_dim0) + 1
+    s_dim1 = math.ceil((img_dim1 - patch_dim1) / stride_dim1) + 1
+    s_dim2 = math.ceil((img_dim2 - patch_dim2) / stride_dim2) + 1
 
     score_map = np.zeros((num_class, ) + image.shape).astype(np.float32)
     cnt = np.zeros(image.shape).astype(np.float32)
 
-    for z in range(0, sz):
-        zs = min(stride_z * z, d - dp)
-        for y in range(0, sy):
-            ys = min(stride_y * y, h - hp)
-            for x in range(0, sx):
-                xs = min(stride_x * x, w - wp)
-                test_patch = image[zs: zs + dp, ys: ys + hp, xs: xs + wp]
+    for s0 in range(0, s_dim0):
+        index_dim0 = min(stride_dim0 * s0, img_dim0 - patch_dim0)
+        for s1 in range(0, s_dim1):
+            index_dim1 = min(stride_dim1 * s1, img_dim1 - patch_dim1)
+            for s2 in range(0, s_dim2):
+                index_dim2 = min(stride_dim2 * s2, img_dim2 - patch_dim2)
+                test_patch = image[index_dim0: index_dim0 + patch_dim0, index_dim1: index_dim1 + patch_dim1, index_dim2: index_dim2 + patch_dim2]
                 test_patch = np.expand_dims(np.expand_dims(test_patch, axis=0), axis=0).astype(np.float32)
                 test_patch = torch.from_numpy(test_patch).cuda()
                 seg_out = model(test_patch)
-                y = F.softmax(seg_out, dim=1).cpu().data.numpy()[0, :, :, :, :]
-                score_map[:, zs: zs + dp, ys: ys + hp, xs: xs + wp] += y
-                cnt[zs: zs + dp, ys: ys + hp, xs: xs + wp] += 1
+                s1 = F.softmax(seg_out, dim=1).cpu().data.numpy()[0, :, :, :, :]
+                score_map[:, index_dim0: index_dim0 + patch_dim0, index_dim1: index_dim1 + patch_dim1, index_dim2: index_dim2 + patch_dim2] += s1
+                cnt[index_dim0: index_dim0 + patch_dim0, index_dim1: index_dim1 + patch_dim1, index_dim2: index_dim2 + patch_dim2] += 1
 
     score_map = score_map / np.expand_dims(cnt, axis=0)
     label_map = np.argmax(score_map, axis=0)
@@ -161,9 +161,9 @@ if __name__ == '__main__':
         image_id_list,
         label_list,
         patch_size,
-        stride_x=int(patch_size[2] / 2),
-        stride_y=int(patch_size[1] / 2),
-        stride_z=int(patch_size[0] / 2)
+        stride_dim0=int(patch_size[0] / 2),
+        stride_dim1=int(patch_size[1] / 2),
+        stride_dim2=int(patch_size[2] / 2)
     )
 
     for i in range(1, len(label_list)):

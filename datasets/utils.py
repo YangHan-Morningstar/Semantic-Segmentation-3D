@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import torch.nn.functional as F
 
 
 class RandomCrop(object):
@@ -13,19 +14,19 @@ class RandomCrop(object):
         image, label = sample['image'], sample['label']
 
         if (label.shape[0] <= self.patch_size[0] or label.shape[1] <= self.patch_size[1] or label.shape[2] <= self.patch_size[2]) and self.padding:
-            pw = max((self.patch_size[0] - label.shape[0]) // 2 + 3, 0)
-            ph = max((self.patch_size[1] - label.shape[1]) // 2 + 3, 0)
-            pd = max((self.patch_size[2] - label.shape[2]) // 2 + 3, 0)
-            image = np.pad(image, [(pw, pw), (ph, ph), (pd, pd)], mode='constant', constant_values=self.padding_value)
-            label = np.pad(label, [(pw, pw), (ph, ph), (pd, pd)], mode='constant', constant_values=self.padding_value)
+            pv_dim0 = max((self.patch_size[0] - label.shape[0]) // 2 + 3, 0)
+            pv_dim1 = max((self.patch_size[1] - label.shape[1]) // 2 + 3, 0)
+            pv_dim2 = max((self.patch_size[2] - label.shape[2]) // 2 + 3, 0)
+            image = np.pad(image, [(pv_dim0, pv_dim0), (pv_dim1, pv_dim1), (pv_dim2, pv_dim2)], mode='constant', constant_values=self.padding_value)
+            label = np.pad(label, [(pv_dim0, pv_dim0), (pv_dim1, pv_dim1), (pv_dim2, pv_dim2)], mode='constant', constant_values=self.padding_value)
 
-        (d, w, h) = image.shape
-        d1 = np.random.randint(0, d - self.patch_size[0])
-        w1 = np.random.randint(0, w - self.patch_size[1])
-        h1 = np.random.randint(0, h - self.patch_size[2])
+        (img_dim0, img_dim1, img_dim2) = image.shape
+        index_dim0 = np.random.randint(0, img_dim0 - self.patch_size[0])
+        index_dim1 = np.random.randint(0, img_dim1 - self.patch_size[1])
+        imdex_dim2 = np.random.randint(0, img_dim2 - self.patch_size[2])
 
-        label = label[d1: d1 + self.patch_size[0], w1: w1 + self.patch_size[1], h1: h1 + self.patch_size[2]]
-        image = image[d1: d1 + self.patch_size[0], w1: w1 + self.patch_size[1], h1: h1 + self.patch_size[2]]
+        label = label[index_dim0: index_dim0 + self.patch_size[0], index_dim1: index_dim1 + self.patch_size[1], imdex_dim2: imdex_dim2 + self.patch_size[2]]
+        image = image[index_dim0: index_dim0 + self.patch_size[0], index_dim1: index_dim1 + self.patch_size[1], imdex_dim2: imdex_dim2 + self.patch_size[2]]
 
         return {'image': image, 'label': label}
 

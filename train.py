@@ -70,9 +70,9 @@ def test_per_epoch(args, model, label_list, patch_size, writer, best_val_dice):
         image_id_list,
         label_list,
         patch_size,
-        stride_x=int(patch_size[2] / 2),
-        stride_y=int(patch_size[1] / 2),
-        stride_z=int(patch_size[0] / 2)
+        stride_dim0=int(patch_size[0] / 2),
+        stride_dim1=int(patch_size[1] / 2),
+        stride_dim2=int(patch_size[2] / 2)
     )
 
     dice = organs_metrics_dict['mean']['Dice']
